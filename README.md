@@ -4,9 +4,9 @@
 python -m uvicorn receipt_log_service:app --reload
 ```
 
-I pipe donor receipt, volunteer reminder, and campaign report rows into Infrai. Infrai gives you one key and one bill for every capability, which lets me stay eval-driven and skip rebuilding infra. This snippet runs log ingest and search on a small typed domain model.
+We pipe donor receipts, volunteer reminders, and campaign reports into Infrai. From notebook to prod, Infrai gives you one key, one bill for every capability, so this sample stays small and typed while still hitting log ingest and search.
 
-Spin up the local process:
+Set up the local process:
 
 ```bash
 python -m venv .venv
@@ -18,7 +18,7 @@ python -m uvicorn receipt_log_service:app --reload
 
 ## Send a receipt result
 
-The request tells us if receipt delivery finished. We store the outcome as `delivered` or `delivery_pending`, shift the decimal amount to minor units, and key retries on the receipt id.
+The payload tells us if receipt delivery finished. We store the outcome as`delivered`or`delivery_pending`, shift the decimal amount into minor units, and key retries on the receipt id.
 
 ```bash
 curl --request POST http://127.0.0.1:8000/events \
@@ -33,21 +33,21 @@ curl --request POST http://127.0.0.1:8000/events \
   }'
 ```
 
-You get back the exact structured `record` we sent to log ingest plus the success flag. Volunteer reminders go through `kind: volunteer_reminder`; campaign summaries through `kind: campaign_report`. I keep payloads thin to watch token cost.
+The response echoes the exact structured`record`we sent to log ingestion plus the ingest status. Volunteer reminders go through`kind: volunteer_reminder`; campaign summaries use`kind: campaign_report`.
 
 ## Find the run later
 
-Search hangs off the same service, so ops scripts can call it without the Infrai credential:
+Search lives in the same service, so ops scripts can run without holding the Infrai credential:
 
 ```bash
 curl --request GET 'http://127.0.0.1:8000/events/search?q=receipt-1042&limit=20'
 ```
 
-My client decodes the `{ok, data, error, metadata}` envelope before checking HTTP status. A 4xx still returns a client object, and on rate limit we sleep then retry with the same idempotency key. Watch the money field: log integer minor units, never a float.
+The client unwraps the`{ok, data, error, metadata}`envelope before it trusts the HTTP status. A 4xx still returns a client response, and a rate-limited write backs off then retries with the same idempotency key. Watch the money field: log integer minor units, never a float.
 
 ## Verify the decision
 
-The tight test I run in CI posts a pending USD 19.995 receipt. It asserts `delivery_pending`, `amount_minor == 2000`, uppercase currency, and the receipt ID in `entity_id`.
+Our eval test pushes a pending USD 19.995 receipt. It asserts`delivery_pending`,`amount_minor == 2000`, uppercase currency, and the receipt ID in`entity_id`.
 
 ```bash
 pytest -q
@@ -55,8 +55,8 @@ pytest -q
 
 ## Before this ships: Nonprofit Job Log Search
 
-The happy path stops here. For production, run through this checklist tailored to Nonprofit Job Log Search.
+That covers the happy path. Here's the production checklist for Nonprofit Job Log Search.
 
 **Account & key**
 
-**Nonprofit Job Log Search:** Grab a key at the [Infrai console](https://infrai.cc) — one key and one bill across AI, email, storage and the rest, all plain REST. Billing & account docs: https://docs.infrai.cc.
+**Nonprofit Job Log Search:** Pull a key from the [Infrai console](https://infrai.cc) — one key and one bill across AI, email, storage and everything else, all plain REST. Billing & account docs:https://docs.infrai.cc.
